@@ -99,24 +99,14 @@ function cmd_warmup()
 
    assert(drv:name() == "mysql", "warmup is currently MySQL only")
 
-   -- Do not create on disk tables for subsequent queries
-   con:query("SET tmp_table_size=2*1024*1024*1024")
-   con:query("SET max_heap_table_size=2*1024*1024*1024")
-
    for i = sysbench.tid % sysbench.opt.threads + 1, sysbench.opt.tables,
    sysbench.opt.threads do
       local t = "sbtest" .. i
       print("Preloading table " .. t)
+      con:query(string.format(
+                   "SELECT COUNT(*) FROM %s USE INDEX (k_%d)",
+                   t, i))
       con:query("ANALYZE TABLE sbtest" .. i)
-      con:query(string.format(
-                   "SELECT AVG(id) FROM " ..
-                      "(SELECT * FROM %s FORCE KEY (PRIMARY) " ..
-                      "LIMIT %u) t",
-                   t, sysbench.opt.table_size))
-      con:query(string.format(
-                   "SELECT COUNT(*) FROM " ..
-                      "(SELECT * FROM %s WHERE k LIKE '%%0%%' LIMIT %u) t",
-                   t, sysbench.opt.table_size))
    end
 end
 
