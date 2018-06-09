@@ -154,6 +154,7 @@ function create_table(drv, con, table_num)
    local engine_def = ""
    local extra_table_options = ""
    local query
+   local key_index_def = ""
 
    if sysbench.opt.secondary then
      id_index_def = "KEY xid"
@@ -185,15 +186,19 @@ function create_table(drv, con, table_num)
 
    print(string.format("Creating table 'sbtest%d'...", table_num))
 
+   if sysbench.opt.create_secondary then
+	key_index_def = string.format(", INDEX k_%d (`k`)", table_num) 
+   end
+
    query = string.format([[
 CREATE TABLE sbtest%d(
   id %s,
   k INTEGER DEFAULT '0' NOT NULL,
   c CHAR(120) DEFAULT '' NOT NULL,
   pad CHAR(60) DEFAULT '' NOT NULL,
-  %s (id)
+  %s (id) %s
 ) %s %s]],
-      table_num, id_def, id_index_def, engine_def, extra_table_options)
+      table_num, id_def, id_index_def, key_index_def, engine_def, extra_table_options)
 
    con:query(query)
 
@@ -234,12 +239,6 @@ CREATE TABLE sbtest%d(
 
    con:bulk_insert_done()
 
-   if sysbench.opt.create_secondary then
-      print(string.format("Creating a secondary index on 'sbtest%d'...",
-                          table_num))
-      con:query(string.format("CREATE INDEX k_%d ON sbtest%d(k)",
-                              table_num, table_num))
-   end
 end
 
 local t = sysbench.sql.type
