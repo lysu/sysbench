@@ -31,6 +31,8 @@ end
 
 -- Command line options
 sysbench.cmdline.options = {
+   garbage_columns =
+      {"Number of garbagec column per table", 0},
    table_size =
       {"Number of rows per table", 10000},
    range_size =
@@ -189,14 +191,19 @@ function create_table(drv, con, table_num)
 
    print(string.format("Creating table 'sbtest%d'...", table_num))
 
-   query = string.format([[
+   local q = [[
 CREATE TABLE sbtest%d(
   id %s,
   k INTEGER DEFAULT '0' NOT NULL,
   c CHAR(120) DEFAULT '' NOT NULL,
-  pad CHAR(60) DEFAULT '' NOT NULL,
-  %s (id)
-) %s %s]],
+  pad CHAR(60) DEFAULT '' NOT NULL,]]
+   for i = 1, sysbench.opt.garbage_columns do
+      q = q .. string.format("col_%d varchar(200)  DEFAULT '' NOT NULL, ", i)
+   end
+   q = q .. [[%s (id)
+) %s %s]]
+
+   query = string.format(q,
       table_num, id_def, id_index_def, engine_def,
       sysbench.opt.create_table_options)
 
@@ -208,9 +215,17 @@ CREATE TABLE sbtest%d(
    end
 
    if sysbench.opt.auto_inc then
-      query = "INSERT INTO sbtest" .. table_num .. "(k, c, pad) VALUES"
+      query = "INSERT INTO sbtest" .. table_num .. "(k, c, pad"
+      for xi = 1, sysbench.opt.garbage_columns do
+         query = query .. string.format(", col_%d ", xi)
+      end
+      query = query .. ") VALUES"
    else
-      query = "INSERT INTO sbtest" .. table_num .. "(id, k, c, pad) VALUES"
+      query = "INSERT INTO sbtest" .. table_num .. "(id, k, c, pad"
+      for xi = 1, sysbench.opt.garbage_columns do
+         query = query .. string.format(", col_%d ", xi)
+      end
+      query = query .. ") VALUES"
    end
 
    con:bulk_insert_init(query)
@@ -224,11 +239,21 @@ CREATE TABLE sbtest%d(
       pad_val = get_pad_value()
 
       if (sysbench.opt.auto_inc) then
-         query = string.format("(%d, '%s', '%s')",
+         local x = "(%d, '%s', '%s' "
+         for xi = 1, sysbench.opt.garbage_columns do
+            x = x .. string.format(", 'col_%d' ", xi)
+         end
+         x = x .. ")"
+         query = string.format(x,
                                sysbench.rand.default(1, sysbench.opt.table_size),
                                c_val, pad_val)
       else
-         query = string.format("(%d, %d, '%s', '%s')",
+         local x2 = "(%d, %d, '%s', '%s' "
+         for xj = 1, sysbench.opt.garbage_columns do
+            x2 = x2 .. string.format(", 'col_%d'", xj)
+         end
+         x2 = x2 .. ")"
+         query = string.format(x2,
                                i,
                                sysbench.rand.default(1, sysbench.opt.table_size),
                                c_val, pad_val)
